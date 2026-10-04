@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HR ticket triage</title>
+<style>
+  :root {
+    --bg: #F1F4F9;
+    --surface: #FFFFFF;
+    --ink: #14203A;
+    --muted: #586277;
+    --line: #D9DFEA;
+    --accent: #1D4ED8;
+    --accent-hover: #1A41B0;
+    --accent-ink: #FFFFFF;
+    --danger: #B42318;
+    --danger-bg: #FDECEA;
+    --radius: 14px;
+
+    --c-recruitment: #0B8A8C;
+    --c-lnd: #6D4FC2;
+    --c-hrbp: #B45F06;
+    --c-ops: #1F5FA8;
+    --c-policy: #B3366B;
+
+    --sans: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0F1626;
+      --surface: #172038;
+      --ink: #E7ECF7;
+      --muted: #9AA6BE;
+      --line: #28345A;
+      --accent: #6B93FF;
+      --accent-hover: #86A6FF;
+      --accent-ink: #0B1226;
+      --danger: #FF9C92;
+      --danger-bg: #3A1D22;
+      --c-recruitment: #3CC4C6;
+      --c-lnd: #A58CF2;
+      --c-hrbp: #F0A24A;
+      --c-ops: #6FB0F2;
+      --c-policy: #F27DAA;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  .page { max-width: 1080px; margin: 0 auto; padding: 40px 20px 64px; }
+
+  header { margin-bottom: 28px; max-width: 640px; }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(2rem, 4.5vw, 2.9rem);
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin: 0 0 10px;
+  }
+  header p { margin: 0; color: var(--muted); font-size: 1.05rem; }
+
+  .layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 20px; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px;
+  }
+  .panel h2 { font-size: 1.05rem; margin: 0 0 14px; font-weight: 650; }
+
+  label { display: block; font-weight: 600; font-size: .92rem; margin-bottom: 6px; }
+  input[type="text"], textarea {
+    width: 100%;
+    font: inherit;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 11px 12px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  textarea { min-height: 150px; resize: vertical; }
+  input::placeholder, textarea::placeholder { color: var(--muted); opacity: .8; }
+  input:focus-visible, textarea:focus-visible, button:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    outline-offset: 1px;
+  }
+  input:focus-visible, textarea:focus-visible { border-color: var(--accent); }
+  .field { margin-bottom: 16px; }
+  .meta { display: flex; justify-content: space-between; color: var(--muted); font-size: .82rem; margin-top: 5px; }
+
+  .samples { margin: 0 0 18px; }
+  .samples p { margin: 0 0 8px; font-size: .88rem; color: var(--muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font: inherit; font-size: .85rem;
+    background: transparent; color: var(--ink);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 5px 12px; cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .chip:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+
+  .actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .primary {
+    font: inherit; font-weight: 650;
+    background: var(--accent); color: var(--accent-ink);
+    border: 0; border-radius: 10px;
+    padding: 12px 22px; cursor: pointer;
+    transition: background .15s;
+  }
+  .primary:hover:not(:disabled) { background: var(--accent-hover); }
+  .primary:disabled { opacity: .65; cursor: progress; }
+  .ghost {
+    font: inherit; background: none; border: 0; color: var(--muted);
+    cursor: pointer; padding: 8px; text-decoration: underline; text-underline-offset: 3px;
+  }
+  .hint { color: var(--muted); font-size: .8rem; }
+
+  /* Routing board: the five HR queues */
+  .board { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+  @media (max-width: 480px) { .board { grid-template-columns: 1fr; } }
+  .tile {
+    --tile: var(--muted);
+    border: 1.5px solid var(--line);
+    border-left: 6px solid var(--tile);
+    border-radius: 10px;
+    padding: 11px 13px;
+    background: var(--surface);
+    transition: background .25s, border-color .25s, opacity .25s, transform .25s;
+  }
+  .tile h3 { margin: 0; font-size: .98rem; font-weight: 650; }
+  .tile p { margin: 2px 0 0; font-size: .82rem; color: var(--muted); }
+  .board.has-result .tile:not(.active) { opacity: .45; }
+  .tile.active {
+    border-color: var(--tile);
+    background: color-mix(in srgb, var(--tile) 13%, var(--surface));
+    transform: translateY(-2px);
+  }
+  .tile.active h3::after { content: " \2713"; color: var(--tile); }
+  .tile:last-child:nth-child(odd) { grid-column: span 2; }
+  @media (max-width: 480px) { .tile:last-child:nth-child(odd) { grid-column: auto; } }
+
+  .result { min-height: 120px; }
+  .empty { color: var(--muted); margin: 0; }
+  .verdict { margin: 0 0 4px; font-family: var(--serif); font-size: 1.6rem; font-weight: 600; line-height: 1.2; }
+  .verdict-sub { margin: 0 0 14px; color: var(--muted); font-size: .9rem; }
+  .bar-wrap { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .bar { flex: 1; height: 10px; border-radius: 99px; background: var(--line); overflow: hidden; }
+  .bar > span { display: block; height: 100%; width: 0; background: var(--tile-color, var(--accent)); border-radius: 99px; transition: width .6s cubic-bezier(.2,.8,.2,1); }
+  .pct { font-weight: 650; font-variant-numeric: tabular-nums; min-width: 3.2em; text-align: right; }
+  .reason { margin: 0; padding: 12px 14px; background: var(--bg); border-radius: 10px; border: 1px solid var(--line); }
+  .reason b { display: block; font-size: .85rem; color: var(--muted); font-weight: 600; margin-bottom: 2px; }
+
+  .error { background: var(--danger-bg); color: var(--danger); border-radius: 10px; padding: 12px 14px; margin: 0; }
+  .error b { display: block; margin-bottom: 2px; }
+  .wake { color: var(--muted); font-size: .88rem; margin: 12px 0 0; }
+
+  .history { margin-top: 20px; }
+  .history ul { list-style: none; margin: 0; padding: 0; }
+  .history li {
+    display: grid; grid-template-columns: 1fr auto; gap: 4px 12px;
+    padding: 11px 0; border-top: 1px solid var(--line);
+  }
+  .history li:first-child { border-top: 0; padding-top: 0; }
+  .h-subject { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .h-cat { font-size: .82rem; font-weight: 650; color: var(--c); border: 1px solid var(--c); border-radius: 99px; padding: 1px 10px; white-space: nowrap; align-self: start; }
+  .h-time { grid-column: 1 / -1; color: var(--muted); font-size: .8rem; }
+
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>HR ticket triage</h1>
+    <p>Describe an employee request and the agent sends it to the right HR team, with its confidence and reasoning.</p>
+  </header>
+
+  <div class="layout">
+    <section class="panel" aria-labelledby="new-ticket">
+      <h2 id="new-ticket">New ticket</h2>
+      <form id="form" novalidate>
+        <div class="field">
+          <label for="subject">Subject</label>
+          <input id="subject" type="text" maxlength="200" placeholder="e.g. Payslip missing" autocomplete="off" required>
+        </div>
+        <div class="field">
+          <label for="description">What does the employee need?</label>
+          <textarea id="description" maxlength="3000" placeholder="Add the details of the request here." required></textarea>
+          <div class="meta"><span class="hint">Press Ctrl+Enter to classify</span><span id="count">0 / 3000</span></div>
+        </div>
+
+        <div class="samples">
+          <p>Try an example</p>
+          <div class="chips" id="chips"></div>
+        </div>
+
+        <div class="actions">
+          <button class="primary" id="submit" type="submit">Classify ticket</button>
+          <button class="ghost" id="clear" type="button">Clear</button>
+        </div>
+      </form>
+    </section>
+
+    <section aria-labelledby="routing">
+      <div class="panel">
+        <h2 id="routing">Where it goes</h2>
+        <div class="board" id="board"></div>
+        <div class="result" id="result" aria-live="polite">
+          <p class="empty">The matching team lights up here after you classify a ticket.</p>
+        </div>
+      </div>
+
+      <div class="panel history" id="history-panel" hidden>
+        <h2>This session</h2>
+        <ul id="history"></ul>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+  const QUEUES = [
+    { name: "Recruitment", color: "var(--c-recruitment)", blurb: "Openings, interviews, offers" },
+    { name: "Learning and Development", color: "var(--c-lnd)", blurb: "Training, courses, certifications" },
+    { name: "HR Business Partner", color: "var(--c-hrbp)", blurb: "Manager and team matters" },
+    { name: "HR Operations", color: "var(--c-ops)", blurb: "Payroll, leave, letters" },
+    { name: "HR Policy", color: "var(--c-policy)", blurb: "Rules and entitlements" }
+  ];
+
+  const SAMPLES = [
+    { subject: "Payslip missing", description: "My September payslip is not visible in the employee portal. Please check." },
+    { subject: "Work from home rules", description: "How many days a week can I work from home, and who needs to approve it?" },
+    { subject: "Azure certification", description: "I would like the company to sponsor my Azure Solutions Architect exam and training course." },
+    { subject: "Open two developer roles", description: "My team needs two backend developers. Please start sourcing and schedule interviews." },
+    { subject: "Conflict in my team", description: "Two members of my team are not getting along and it is affecting delivery. I need guidance." }
+  ];
+
+  const $ = (id) => document.getElementById(id);
+  const form = $("form"), subject = $("subject"), description = $("description");
+  const submit = $("submit"), board = $("board"), result = $("result");
+  const historyPanel = $("history-panel"), historyList = $("history");
+
+  // Build routing board
+  QUEUES.forEach((q) => {
+    const el = document.createElement("div");
+    el.className = "tile";
+    el.dataset.name = q.name;
+    el.style.setProperty("--tile", q.color);
+    el.innerHTML = "<h3></h3><p></p>";
+    el.querySelector("h3").textContent = q.name;
+    el.querySelector("p").textContent = q.blurb;
+    board.appendChild(el);
+  });
+
+  // Build example chips
+  SAMPLES.forEach((s) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip";
+    b.textContent = s.subject;
+    b.addEventListener("click", () => {
+      subject.value = s.subject;
+      description.value = s.description;
+      updateCount();
+      description.focus();
+    });
+    $("chips").appendChild(b);
+  });
+
+  function updateCount() { $("count").textContent = description.value.length + " / 3000"; }
+  description.addEventListener("input", updateCount);
+
+  $("clear").addEventListener("click", () => {
+    subject.value = ""; description.value = ""; updateCount();
+    board.classList.remove("has-result");
+    board.querySelectorAll(".tile").forEach((t) => t.classList.remove("active"));
+    result.innerHTML = '<p class="empty">The matching team lights up here after you classify a ticket.</p>';
+    subject.focus();
+  });
+
+  description.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); form.requestSubmit(); }
+  });
+
+  function colorFor(name) {
+    const q = QUEUES.find((x) => x.name === name);
+    return q ? q.color : "var(--accent)";
+  }
+
+  function showError(title, detail) {
+    result.innerHTML = "";
+    const p = document.createElement("p");
+    p.className = "error";
+    p.setAttribute("role", "alert");
+    const b = document.createElement("b"); b.textContent = title;
+    p.appendChild(b); p.appendChild(document.createTextNode(detail));
+    result.appendChild(p);
+  }
+
+  function showResult(data, seconds) {
+    board.classList.add("has-result");
+    board.querySelectorAll(".tile").forEach((t) => t.classList.toggle("active", t.dataset.name === data.category));
+
+    const pct = Math.round(data.confidence * 100);
+    result.innerHTML = "";
+    result.style.setProperty("--tile-color", colorFor(data.category));
+
+    const v = document.createElement("p"); v.className = "verdict"; v.textContent = data.category;
+    const sub = document.createElement("p"); sub.className = "verdict-sub";
+    sub.textContent = "Classified in " + seconds.toFixed(1) + " seconds";
+
+    const wrap = document.createElement("div"); wrap.className = "bar-wrap";
+    wrap.innerHTML = '<div class="bar" role="img"><span></span></div><span class="pct"></span>';
+    wrap.querySelector(".bar").setAttribute("aria-label", "Confidence " + pct + " percent");
+    wrap.querySelector(".pct").textContent = pct + "%";
+
+    const r = document.createElement("p"); r.className = "reason";
+    const rb = document.createElement("b"); rb.textContent = "Why";
+    r.appendChild(rb); r.appendChild(document.createTextNode(data.reasoning));
+
+    result.append(v, sub, wrap, r);
+    requestAnimationFrame(() => { wrap.querySelector(".bar > span").style.width = pct + "%"; });
+  }
+
+  function addHistory(subjectText, category) {
+    historyPanel.hidden = false;
+    const li = document.createElement("li");
+    li.style.setProperty("--c", colorFor(category));
+    const s = document.createElement("span"); s.className = "h-subject"; s.textContent = subjectText;
+    const c = document.createElement("span"); c.className = "h-cat"; c.textContent = category;
+    const t = document.createElement("span"); t.className = "h-time";
+    t.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    li.append(s, c, t);
+    historyList.prepend(li);
+    while (historyList.children.length > 8) historyList.lastChild.remove();
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const subj = subject.value.trim(), desc = description.value.trim();
+    if (subj.length < 3 || desc.length < 3) {
+      showError("Add a bit more detail.", "Enter a subject and a description of at least 3 characters each.");
+      return;
+    }
+
+    submit.disabled = true;
+    submit.textContent = "Classifying…";
+    result.innerHTML = '<p class="empty">Reading the ticket…</p>';
+    const wakeTimer = setTimeout(() => {
+      const w = document.createElement("p");
+      w.className = "wake";
+      w.textContent = "This is taking longer than usual. The server may be waking up after a quiet period and can need up to a minute.";
+      result.appendChild(w);
+    }, 8000);
+
+    const started = performance.now();
+    const ctrl = new AbortController();
+    const abortTimer = setTimeout(() => ctrl.abort(), 120000);
+
+    try {
+      const res = await fetch("/classify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject: subj, description: desc }),
+        signal: ctrl.signal
+      });
+      if (!res.ok) {
+        let detail = "The server returned status " + res.status + ".";
+        try {
+          const j = await res.json();
+          if (typeof j.detail === "string") detail = j.detail;
+          else if (Array.isArray(j.detail)) detail = "Check the subject and description lengths and try again.";
+        } catch (_) {}
+        throw new Error(detail);
+      }
+      const data = await res.json();
+      showResult(data, (performance.now() - started) / 1000);
+      addHistory(subj, data.category);
+    } catch (err) {
+      if (err.name === "AbortError") {
+        showError("The request timed out.", "No answer came back within 2 minutes. Try again, and check the server logs if it keeps happening.");
+      } else {
+        showError("Could not classify this ticket.", err.message);
+      }
+    } finally {
+      clearTimeout(wakeTimer); clearTimeout(abortTimer);
+      submit.disabled = false;
+      submit.textContent = "Classify ticket";
+    }
+  });
+</script>
+</body>
+</html>
