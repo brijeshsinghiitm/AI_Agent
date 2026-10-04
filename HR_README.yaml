@@ -1,0 +1,64 @@
+title: HR Ticket Classifier Agent
+description: >-
+  Classifies HR tickets into: Recruitment, Learning and Development,
+  HR Business Partner, HR Operations, HR Policy.
+
+categories:
+  - Recruitment
+  - Learning and Development
+  - HR Business Partner
+  - HR Operations
+  - HR Policy
+
+stack:
+  - Gemini
+  - LangChain
+  - LangSmith
+  - FastAPI
+  - uvicorn
+  - ngrok
+
+setup:
+  - step: 1
+    name: Create venv and activate it
+    commands:
+      windows:
+        - python -m venv venv
+        - venv\Scripts\activate
+      mac_linux:
+        - python -m venv venv
+        - source venv/bin/activate
+  - step: 2
+    name: Install dependencies
+    commands:
+      - pip install -r requirements.txt
+  - step: 3
+    name: Rename .env.example to .env and add your keys
+    links:
+      gemini: https://aistudio.google.com/apikey
+      langsmith: https://smith.langchain.com   # Settings > API Keys
+  - step: 4
+    name: One-time ngrok authentication
+    commands:
+      - ngrok config add-authtoken <YOUR_TOKEN>
+
+run:
+  terminal_1:
+    description: Start the agent server
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+  terminal_2:
+    description: Open the public tunnel
+    command: ngrok http 8000
+  test_url: https://<your-ngrok-url>/docs
+
+test:
+  description: Classify a sample ticket
+  command: |
+    curl -X POST http://localhost:8000/classify \
+      -H "Content-Type: application/json" \
+      -d '{"subject":"Payslip missing","description":"My September payslip is not visible in the portal"}'
+
+monitoring:
+  tool: LangSmith
+  path: Projects > hr-ticket-classifier
+  note: Traces appear after the first request.
