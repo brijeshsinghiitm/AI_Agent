@@ -1,0 +1,23 @@
+# Optional: only used if you deploy through a Render Blueprint.
+# If your service already exists, set these in the dashboard instead.
+services:
+  - type: web
+    name: ai-agent-hrok
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: LANGSMITH_API_KEY
+        sync: false
+      - key: LANGSMITH_TRACING
+        value: "true"
+      - key: LANGSMITH_PROJECT
+        value: hr-ticket-classifier
+      - key: LANGSMITH_ENDPOINT
+        value: https://api.smith.langchain.com
